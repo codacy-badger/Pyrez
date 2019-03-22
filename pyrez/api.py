@@ -93,7 +93,7 @@ class HiRezAPI(BaseAPI):
     Class for handling connections and requests to Hi-Rez Studios APIs. IS BETTER DON'T INITALISE THIS YOURSELF!
     """
 
-    PYREZ_HEADER = { "User-Agent": "{0} [Python/{1.major}.{1.minor} aiohttp/{2}]".format(pyrez.__title__, pythonVersion, aiohttp.__version_) }
+    PYREZ_HEADER = { "User-Agent": "{0} [Python/{1.major}.{1.minor} aiohttp/{2}]".format(pyrez.__title__, pythonVersion, aiohttp.__version__) }
 
     def __init__(self, devId, authKey, endpoint, responseFormat=ResponseFormat.JSON, sessionId=None, useConfigIni=False):
         """
