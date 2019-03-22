@@ -16,7 +16,7 @@ https://discord.gg/XkydRPS) on [Discord](https://discordapp.com/ "Discord App")
 
 ### Requirements
 * [Python](http://python.org "Python.org") 3.x(3.4 or higher).
-    * The following libraries are required: [`aiohttp`](https://pypi.org/project/aiohttp/ "Async http client/server framework") and `[async_timeout](https://pypi.org/project/async_timeout/)`.
+    * The following libraries are required: [`aiohttp`](https://pypi.org/project/aiohttp/ "Async http client/server framework") and [`async_timeout`](https://pypi.org/project/async_timeout/).
 - [Access](./docs#registration "Form access to Hi-Rez API") to Hi-Rez Studios API.
 
 ### Installation
