@@ -82,7 +82,7 @@ class BaseAPI:
 
     async def _httpRequest(self, url, header=None):
         httpResponse = await HttpRequest(header if header else self._header).get(url)
-        if httpResponse.status >= 400:
+        if httpResponse.status_code >= 400:
             raise NotFoundException("Wrong URL: {0}".format(httpResponse.text()))
         result = await httpResponse.json() if httpResponse.json() is not None else httpResponse.text()
         print(result)
