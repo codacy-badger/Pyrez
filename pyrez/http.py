@@ -1,6 +1,7 @@
 from sys import version_info as pythonVersion
 
 import requests_async as requests
+import asyncio
 
 class HttpRequest():
     defaultHeaders = { "User-Agent": "HttpRequestWrapper [Python/{0.major}.{0.minor} requests/{1}]".format(pythonVersion, requests.__version__) }
