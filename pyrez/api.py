@@ -5,13 +5,12 @@ from json.decoder import JSONDecodeError as JSONException
 import os
 from sys import version_info as pythonVersion
 
-import requests_async as requests
+import aiohttp
 import asyncio
 
 import pyrez
 from pyrez.enumerations import *
 from pyrez.exceptions import *
-from pyrez.http import HttpRequest as HttpRequest
 from pyrez.models import *
 
 class BaseAPI:
@@ -82,20 +81,18 @@ class BaseAPI:
         return str(string).encode(encodeType)
 
     async def _httpRequest(self, url, header=None):
-        httpResponse = await HttpRequest(header if header else self._header).get(url)
-        if httpResponse.status_code >= 400:
-            raise NotFoundException("Wrong URL: {0}".format(httpResponse.text()))
-            try:
-            	return httpResponse.json()
-            except JSONException as exception:
-            	return httpResponse.text
+    	async with aiohttp.ClientSession() as session:
+    		async with session.get(url, headers=headers) as response:
+    			if httpResponse.status >= 400:
+    				raise NotFoundException("Wrong URL: {0}".format(httpResponse.text()))
+    			return await httpResponse.json() if httpResponse.json() is not None else response.text()
 
 class HiRezAPI(BaseAPI):
     """
     Class for handling connections and requests to Hi-Rez Studios APIs. IS BETTER DON'T INITALISE THIS YOURSELF!
     """
 
-    PYREZ_HEADER = { "User-Agent": "{0} [Python/{1.major}.{1.minor} requests/{2}]".format(pyrez.__title__, pythonVersion, requests.__version__) }
+    PYREZ_HEADER = { "User-Agent": "{0} [Python/{1.major}.{1.minor} aiohttp/{2} asyncio/{3}]".format(pyrez.__title__, pythonVersion, aiohttp.__version__, asyncio.__version__) }
 
     def __init__(self, devId, authKey, endpoint, responseFormat=ResponseFormat.JSON, sessionId=None, useConfigIni=False):
         """
