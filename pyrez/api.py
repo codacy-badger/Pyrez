@@ -82,7 +82,7 @@ class BaseAPI:
         return str(string).encode(encodeType)
 
     async def _httpRequest(self, url, header=None):
-        httpResponse = await HttpRequest(header if header else self._header).get(url)
+        httpResponse = await asyncio.get_event_loop().run_until_complete(HttpRequest(header if header else self._header).get(url))
         if httpResponse.status_code >= 400:
             raise NotFoundException("Wrong URL: {0}".format(httpResponse.text()))
         result = httpResponse.json() if httpResponse.json() is not None else httpResponse.text()
@@ -165,7 +165,7 @@ class HiRezAPI(BaseAPI):
             raise InvalidArgumentException("No API method specified!")
         elif(apiMethod.lower() != "createsession" and self._sessionExpired()):
             self._createSession()
-        result = asyncio.get_event_loop().run_until_complete(self._httpRequest(apiMethod if str(apiMethod).lower().startswith("http") else self._buildUrlRequest(apiMethod, params)))
+        result = await self._httpRequest(apiMethod if str(apiMethod).lower().startswith("http") else self._buildUrlRequest(apiMethod, params))
         if result:
             if str(self._responseFormat).lower() == str(ResponseFormat.XML).lower():
                 return result
@@ -194,7 +194,7 @@ class HiRezAPI(BaseAPI):
                     raise RequestErrorException("The server encountered an error processing the request: " + hasError.retMsg)
                 elif hasError.retMsg.find("404") != -1:
                     raise NotFoundException("Not found: " + hasError.retMsg)
-            return result
+            return await result
 
     def switchEndpoint(self, endpoint):
         if not isinstance(endpoint, Endpoint):
@@ -208,7 +208,7 @@ class HiRezAPI(BaseAPI):
         """
         try:
             tempResponseFormat, self._responseFormat = self._responseFormat, ResponseFormat.JSON
-            responseJSON = asyncio.get_event_loop().run_until_complete(self.makeRequest("createsession"))
+            responseJSON = await self.makeRequest("createsession")
             self._responseFormat = tempResponseFormat
             return Session(**responseJSON) if responseJSON is not None else None
         except WrongCredentials as x:
@@ -223,7 +223,7 @@ class HiRezAPI(BaseAPI):
             Object of pyrez.models.Ping: Returns the infos about the API.
         """
         tempResponseFormat, self._responseFormat = self._responseFormat, ResponseFormat.JSON
-        responseJSON = asyncio.get_event_loop().run_until_complete(self.makeRequest("ping"))
+        responseJSON = await self.makeRequest("ping")
         self._responseFormat = tempResponseFormat
         return Ping(responseJSON) if responseJSON is not None else None
     
@@ -239,7 +239,7 @@ class HiRezAPI(BaseAPI):
         """
         session = self.currentSessionId if sessionId is None or not str(sessionId).isalnum() else sessionId
         uri = "{0}/testsession{1}/{2}/{3}/{4}/{5}".format(self._endpointBaseURL, self._responseFormat, self._devId, self._createSignature("testsession"), session, self._createTimeStamp())
-        result = asyncio.get_event_loop().run_until_complete(self._httpRequest(uri))
+        result = await self._httpRequest(uri)
         return result.find("successful test") != -1
 
     async def getDataUsed(self):
@@ -251,12 +251,12 @@ class HiRezAPI(BaseAPI):
             Object of pyrez.models.DataUsed
         """
         tempResponseFormat, self._responseFormat = self._responseFormat, ResponseFormat.JSON
-        responseJSON = asyncio.get_event_loop().run_until_complete(self.makeRequest("getdataused"))
+        responseJSON = await self.makeRequest("getdataused")
         self._responseFormat = tempResponseFormat
         return None if responseJSON is None else DataUsed(**responseJSON) if str(responseJSON).startswith('{') else DataUsed(**responseJSON[0])
     
     async def getHiRezServerFeeds(self):
-        req = asyncio.get_event_loop().run_until_complete(self._httpRequest("http://status.hirezstudios.com/history.atom", self._header))
+        req = await self._httpRequest("http://status.hirezstudios.com/history.atom", self._header)
         #https://hirezstudios.statuspage.io/history.rss
         #https://hirezstudios.statuspage.io/history.json
         return req
@@ -270,7 +270,7 @@ class HiRezAPI(BaseAPI):
             Object of pyrez.models.HiRezServerStatus
         """
         tempResponseFormat, self._responseFormat = self._responseFormat, ResponseFormat.JSON
-        responseJSON = asyncio.get_event_loop().run_until_complete(self.makeRequest("gethirezserverstatus"))
+        responseJSON = await self.makeRequest("gethirezserverstatus")
         self._responseFormat = tempResponseFormat
         if responseJSON is None:
             return None
@@ -289,7 +289,7 @@ class HiRezAPI(BaseAPI):
             Object of pyrez.models.PatchInfo
         """
         tempResponseFormat, self._responseFormat = self._responseFormat, ResponseFormat.JSON
-        responseJSON = asyncio.get_event_loop().run_until_complete(self.makeRequest("getpatchinfo"))
+        responseJSON = await self.makeRequest("getpatchinfo")
         self._responseFormat = tempResponseFormat
         return PatchInfo(**responseJSON) if responseJSON is not None else None
     
@@ -303,7 +303,7 @@ class HiRezAPI(BaseAPI):
         """
         if playerId is None or not str(playerId).isnumeric():
             raise InvalidArgumentException("Invalid player: playerId must to be numeric (int)!")
-        responseJSON = asyncio.get_event_loop().run_until_complete(self.makeRequest("getfriends", [playerId]))
+        responseJSON = await self.makeRequest("getfriends", [playerId])
         if str(self._responseFormat).lower() == str(ResponseFormat.XML).lower():
             return responseJSON
         if responseJSON is None:
@@ -324,7 +324,7 @@ class HiRezAPI(BaseAPI):
         """
         if matchId is None or not str(matchId).isnumeric():
             raise InvalidArgumentException("Invalid Match ID: matchId must to be numeric (int)!")
-        responseJSON = asyncio.get_event_loop().run_until_complete(self.makeRequest("getmatchdetails", [matchId]))
+        responseJSON = await self.makeRequest("getmatchdetails", [matchId])
         if str(self._responseFormat).lower() == str(ResponseFormat.XML).lower():
             return responseJSON
         if responseJSON is None:
@@ -346,7 +346,7 @@ class HiRezAPI(BaseAPI):
             There is a byte limit to the amount of data returned;
             Please limit the CSV parameter to 5 to 10 matches because of this and for Hi-Rez DB Performance reasons.
         """
-        responseJSON = asyncio.get_event_loop().run_until_complete(self.makeRequest("getmatchdetailsbatch", [','.join(matchIds)]))
+        responseJSON = await self.makeRequest("getmatchdetailsbatch", [','.join(matchIds)])
         if str(self._responseFormat).lower() == str(ResponseFormat.XML).lower():
             return responseJSON
         if responseJSON is None:
@@ -367,7 +367,7 @@ class HiRezAPI(BaseAPI):
         """
         if playerId is None or not str(playerId).isnumeric():
             raise InvalidArgumentException("Invalid player: playerId must to be numeric (int)!")
-        getMatchHistoryResponse = asyncio.get_event_loop().run_until_complete(self.makeRequest("getmatchhistory", [playerId]))
+        getMatchHistoryResponse = await self.makeRequest("getmatchhistory", [playerId])
         if str(self._responseFormat).lower() == str(ResponseFormat.XML).lower():
             return getMatchHistoryResponse
         if getMatchHistoryResponse is None:
