@@ -5,7 +5,7 @@ from json.decoder import JSONDecodeError as JSONException
 import os
 from sys import version_info as pythonVersion
 
-import aiohttp
+import requests_async as requests
 
 import pyrez
 from pyrez.enumerations import *
@@ -82,11 +82,9 @@ class BaseAPI:
 
     async def _httpRequest(self, url, header=None):
         httpResponse = await HttpRequest(header if header else self._header).get(url)
-        #loop = asyncio.get_event_loop()
-        #loop.run_until_complete(HttpRequest(header if header else self._header).get(url))
         if httpResponse.status >= 400:
             raise NotFoundException("Wrong URL: {0}".format(httpResponse.text()))
-        return await httpResponse.json() if httpResponse.json() is not None else httpResponse.text()
+        return httpResponse.json() if httpResponse.json() is not None else httpResponse.text()
 
 class HiRezAPI(BaseAPI):
     """
