@@ -221,7 +221,7 @@ class HiRezAPI(BaseAPI):
         """
         session = self.currentSessionId if sessionId is None or not str(sessionId).isalnum() else sessionId
         uri = "{0}/testsession{1}/{2}/{3}/{4}/{5}".format(self._endpointBaseURL, self._responseFormat, self._devId, self._createSignature("testsession"), session, self._createTimeStamp())
-        result = await self._httpRequest(uri)
+        result = self._httpRequest(uri)
         return result.find("successful test") != -1
     def getDataUsed(self):
         """
@@ -237,7 +237,7 @@ class HiRezAPI(BaseAPI):
         return None if responseJSON is None else DataUsed(**responseJSON) if str(responseJSON).startswith('{') else DataUsed(**responseJSON[0])
 
     def getHiRezServerFeeds(self):
-        req = await self._httpRequest("http://status.hirezstudios.com/history.atom", self._header)
+        req = self._httpRequest("http://status.hirezstudios.com/history.atom", self._header)
         #https://hirezstudios.statuspage.io/history.rss
         #https://hirezstudios.statuspage.io/history.json
         return req
