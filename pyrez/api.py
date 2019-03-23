@@ -86,7 +86,7 @@ class BaseAPI:
             raise NotFoundException("Wrong URL: {0}".format(httpResponse.text()))
         result = httpResponse.json() if httpResponse.json() is not None else httpResponse.text()
         print(result)
-        return await result
+        return result
 
 class HiRezAPI(BaseAPI):
     """
