@@ -194,7 +194,7 @@ class HiRezAPI(BaseAPI):
         A required step to Authenticate the devId/signature for further API use.
         """
         tempResponseFormat, self._responseFormat = self._responseFormat, ResponseFormat.JSON
-        responseJSON = await self.makeRequest("createsession")
+        responseJSON = self.makeRequest("createsession")
         self._responseFormat = tempResponseFormat
         return Session(**responseJSON) if responseJSON is not None else None
     def ping(self):
@@ -206,7 +206,7 @@ class HiRezAPI(BaseAPI):
             Object of pyrez.models.Ping: Returns the infos about the API.
         """
         tempResponseFormat, self._responseFormat = self._responseFormat, ResponseFormat.JSON
-        responseJSON = await self.makeRequest("ping")
+        responseJSON = self.makeRequest("ping")
         self._responseFormat = tempResponseFormat
         return Ping(responseJSON) if responseJSON is not None else None
     def testSession(self, sessionId=None):
@@ -232,7 +232,7 @@ class HiRezAPI(BaseAPI):
             Object of pyrez.models.DataUsed
         """
         tempResponseFormat, self._responseFormat = self._responseFormat, ResponseFormat.JSON
-        responseJSON = await self.makeRequest("getdataused")
+        responseJSON = self.makeRequest("getdataused")
         self._responseFormat = tempResponseFormat
         return None if responseJSON is None else DataUsed(**responseJSON) if str(responseJSON).startswith('{') else DataUsed(**responseJSON[0])
 
@@ -250,7 +250,7 @@ class HiRezAPI(BaseAPI):
             Object of pyrez.models.HiRezServerStatus
         """
         tempResponseFormat, self._responseFormat = self._responseFormat, ResponseFormat.JSON
-        responseJSON = await self.makeRequest("gethirezserverstatus")
+        responseJSON = self.makeRequest("gethirezserverstatus")
         self._responseFormat = tempResponseFormat
         if responseJSON is None:
             return None
@@ -268,7 +268,7 @@ class HiRezAPI(BaseAPI):
             Object of pyrez.models.PatchInfo
         """
         tempResponseFormat, self._responseFormat = self._responseFormat, ResponseFormat.JSON
-        responseJSON = await self.makeRequest("getpatchinfo")
+        responseJSON = self.makeRequest("getpatchinfo")
         self._responseFormat = tempResponseFormat
         return PatchInfo(**responseJSON) if responseJSON is not None else None
     def getFriends(self, playerId):
@@ -281,7 +281,7 @@ class HiRezAPI(BaseAPI):
         """
         if playerId is None or not str(playerId).isnumeric():
             raise InvalidArgumentException("Invalid player: playerId must to be numeric (int)!")
-        responseJSON = await self.makeRequest("getfriends", [playerId])
+        responseJSON = self.makeRequest("getfriends", [playerId])
         if str(self._responseFormat).lower() == str(ResponseFormat.XML).lower():
             return responseJSON
         if responseJSON is None:
@@ -301,7 +301,7 @@ class HiRezAPI(BaseAPI):
         """
         if matchId is None or not str(matchId).isnumeric():
             raise InvalidArgumentException("Invalid Match ID: matchId must to be numeric (int)!")
-        responseJSON = await self.makeRequest("getmatchdetails", [matchId])
+        responseJSON = self.makeRequest("getmatchdetails", [matchId])
         if str(self._responseFormat).lower() == str(ResponseFormat.XML).lower():
             return responseJSON
         if responseJSON is None:
@@ -322,7 +322,7 @@ class HiRezAPI(BaseAPI):
             There is a byte limit to the amount of data returned;
             Please limit the CSV parameter to 5 to 10 matches because of this and for Hi-Rez DB Performance reasons.
         """
-        responseJSON = await self.makeRequest("getmatchdetailsbatch", [','.join(matchIds)])
+        responseJSON = self.makeRequest("getmatchdetailsbatch", [','.join(matchIds)])
         if str(self._responseFormat).lower() == str(ResponseFormat.XML).lower():
             return responseJSON
         if responseJSON is None:
@@ -342,7 +342,7 @@ class HiRezAPI(BaseAPI):
         """
         if playerId is None or not str(playerId).isnumeric():
             raise InvalidArgumentException("Invalid player: playerId must to be numeric (int)!")
-        getMatchHistoryResponse = await self.makeRequest("getmatchhistory", [playerId])
+        getMatchHistoryResponse = self.makeRequest("getmatchhistory", [playerId])
         if str(self._responseFormat).lower() == str(ResponseFormat.XML).lower():
             return getMatchHistoryResponse
         if getMatchHistoryResponse is None:
@@ -376,7 +376,7 @@ class HiRezAPI(BaseAPI):
         """
         if queueId is None or not str(queueId).isnumeric() or not isinstance(queueId, (RealmRoyaleQueue, SmiteQueue, PaladinsQueue)):
             raise InvalidArgumentException("Invalid Queue ID: queueId must to be numeric (int)!")
-        getMatchIdsByQueueResponse = await self.makeRequest("getmatchidsbyqueue", [queueId, date.strftime("%Y%m%d") if isinstance(date, datetime) else date, hour])
+        getMatchIdsByQueueResponse = self.makeRequest("getmatchidsbyqueue", [queueId, date.strftime("%Y%m%d") if isinstance(date, datetime) else date, hour])
         if str(self._responseFormat).lower() == str(ResponseFormat.XML).lower():
             return getMatchIdsByQueueResponse
         if getMatchIdsByQueueResponse is None:
@@ -398,11 +398,11 @@ class HiRezAPI(BaseAPI):
         if player is None or len(str(player)) <= 3:
             raise InvalidArgumentException("Invalid player: playerId must to be numeric (int)!")
         if str(self._responseFormat).lower() == str(ResponseFormat.XML).lower():
-            return await self.makeRequest("getplayer", [player, portalId] if portalId else [player])
+            return self.makeRequest("getplayer", [player, portalId] if portalId else [player])
         if isinstance(self, RealmRoyaleAPI):
             plat = "hirez" if not str(player).isdigit() or str(player).isdigit() and len(str(player)) <= 8 else "steam"
             return PlayerRealmRoyale(**self.makeRequest("getplayer", [player, plat]))
-        res = await self.makeRequest("getplayer", [player, portalId] if portalId else [player])
+        res = self.makeRequest("getplayer", [player, portalId] if portalId else [player])
         return None if res is None else PlayerSmite(**res[0]) if isinstance(self, SmiteAPI) else PlayerPaladins(**res[0])
     def getPlayerAchievements(self, playerId):
         """
@@ -414,7 +414,7 @@ class HiRezAPI(BaseAPI):
         """
         if playerId is None or not str(playerId).isnumeric():
             raise InvalidArgumentException("Invalid player: playerId must to be numeric (int)!")
-        getPlayerAchievementsResponse = await self.makeRequest("getplayerachievements", [playerId])
+        getPlayerAchievementsResponse = self.makeRequest("getplayerachievements", [playerId])
         if str(self._responseFormat).lower() == str(ResponseFormat.XML).lower():
             return getPlayerAchievementsResponse
         if getPlayerAchievementsResponse is None:
@@ -429,7 +429,7 @@ class HiRezAPI(BaseAPI):
         Keyword arguments/Parameters:
             playerName [str]: 
         """
-        getPlayerIdByNameResponse = await self.makeRequest("getplayeridbyname", [playerName])
+        getPlayerIdByNameResponse = self.makeRequest("getplayeridbyname", [playerName])
         if str(self._responseFormat).lower() == str(ResponseFormat.XML).lower():
             return getPlayerIdByNameResponse
         if getPlayerIdByNameResponse is None:
@@ -449,7 +449,7 @@ class HiRezAPI(BaseAPI):
             portalId [int]: 
             portalUserId [int]: 
         """
-        getPlayerIdByPortalUserIdResponse = await self.makeRequest("getplayeridbyportaluserid", [portalId, portalUserId])
+        getPlayerIdByPortalUserIdResponse = self.makeRequest("getplayeridbyportaluserid", [portalId, portalUserId])
         if str(self._responseFormat).lower() == str(ResponseFormat.XML).lower():
             return getPlayerIdByPortalUserIdResponse
         if getPlayerIdByPortalUserIdResponse is None:
@@ -468,7 +468,7 @@ class HiRezAPI(BaseAPI):
         Keyword arguments/Parameters:
             gamerTag [str]: 
         """
-        getPlayerIdsByGamerTagResponse = await self.makeRequest("getplayeridsbygamertag", [portalId, gamerTag])
+        getPlayerIdsByGamerTagResponse = self.makeRequest("getplayeridsbygamertag", [portalId, gamerTag])
         if str(self._responseFormat).lower() == str(ResponseFormat.XML).lower():
             return getPlayerIdsByGamerTagResponse
         if getPlayerIdsByGamerTagResponse is None:
@@ -492,7 +492,7 @@ class HiRezAPI(BaseAPI):
         """
         if playerId is None or not str(playerId).isnumeric():
             raise InvalidArgumentException("Invalid player: playerId must to be numeric (int)!")
-        getPlayerStatusResponse = await self.makeRequest("getplayerstatus", [playerId])
+        getPlayerStatusResponse = self.makeRequest("getplayerstatus", [playerId])
         if str(self._responseFormat).lower() == str(ResponseFormat.XML).lower():
             return getPlayerStatusResponse
         if not getPlayerStatusResponse:
@@ -511,7 +511,7 @@ class HiRezAPI(BaseAPI):
             raise InvalidArgumentException("Invalid player: playerId must to be numeric (int)!")
         #elif queueId is None or not str(queueId).isnumeric() or not isinstance(queueId, (RealmRoyaleQueue, SmiteQueue, PaladinsQueue)):
         #    raise InvalidArgumentException("Invalid Queue ID: queueId must to be numeric (int)!")
-        getQueueStatsResponse = await self.makeRequest("getqueuestats", [playerId, queueId])
+        getQueueStatsResponse = self.makeRequest("getqueuestats", [playerId, queueId])
         if str(self._responseFormat).lower() == str(ResponseFormat.XML).lower():
             return getQueueStatsResponse
         if not getQueueStatsResponse:
@@ -550,7 +550,7 @@ class BaseSmitePaladinsAPI(HiRezAPI):
             raise NotSupported("This method is just for Paladins and Smite API's!")
         elif matchId is None or not str(matchId).isnumeric():
             raise InvalidArgumentException("Invalid Match ID: matchId must to be numeric (int)!")
-        getDemoDetailsResponse = await self.makeRequest("getdemodetails", [matchId])
+        getDemoDetailsResponse = self.makeRequest("getdemodetails", [matchId])
         if str(self._responseFormat).lower() == str(ResponseFormat.XML).lower():
             return getDemoDetailsResponse
         if not getDemoDetailsResponse:
@@ -568,7 +568,7 @@ class BaseSmitePaladinsAPI(HiRezAPI):
         """
         if not isinstance(self, (PaladinsAPI, SmiteAPI)):
             raise NotSupported("This method is just for Paladins and Smite API's!")
-        getEsportsProLeagueDetailsResponse = await self.makeRequest("getesportsproleaguedetails")
+        getEsportsProLeagueDetailsResponse = self.makeRequest("getesportsproleaguedetails")
         if str(self._responseFormat).lower() == str(ResponseFormat.XML).lower():
             return getEsportsProLeagueDetailsResponse
         if not getEsportsProLeagueDetailsResponse:
@@ -590,7 +590,7 @@ class BaseSmitePaladinsAPI(HiRezAPI):
         """
         if not isinstance(self, (PaladinsAPI, SmiteAPI)):
             raise NotSupported("This method is just for Paladins and Smite API's!")
-        getGodsResponse = await self.makeRequest("getgods", [languageCode])
+        getGodsResponse = self.makeRequest("getgods", [languageCode])
         if str(self._responseFormat).lower() == str(ResponseFormat.XML).lower():
             return getGodsResponse
         if not getGodsResponse:
@@ -613,7 +613,7 @@ class BaseSmitePaladinsAPI(HiRezAPI):
             raise InvalidArgumentException("Invalid God ID: godId must to be numeric (int)!")
         elif queueId is None or not str(queueId).isnumeric() or not isinstance(queueId, (SmiteQueue, PaladinsQueue)):
             raise InvalidArgumentException("Invalid Queue ID: queueId must to be numeric (int)!")
-        getGodLeaderboardResponse = await self.makeRequest("getgodleaderboard", [godId, queueId])
+        getGodLeaderboardResponse = self.makeRequest("getgodleaderboard", [godId, queueId])
         if str(self._responseFormat).lower() == str(ResponseFormat.XML).lower():
             return getGodLeaderboardResponse
         if not getGodLeaderboardResponse:
@@ -637,7 +637,7 @@ class BaseSmitePaladinsAPI(HiRezAPI):
             raise NotSupported("This method is just for Paladins and Smite API's!")
         if playerId is None or not str(playerId).isnumeric():
             raise InvalidArgumentException("Invalid player: playerId must to be numeric (int)!")
-        getGodRanksResponse = await self.makeRequest("getgodranks", [playerId])
+        getGodRanksResponse = self.makeRequest("getgodranks", [playerId])
         if str(self._responseFormat).lower() == str(ResponseFormat.XML).lower():
             return getGodRanksResponse
         if not getGodRanksResponse:
@@ -657,7 +657,7 @@ class BaseSmitePaladinsAPI(HiRezAPI):
         """
         if godId is None or not str(godId).isnumeric() or not isinstance(godId, (Gods, Champions)):
             raise InvalidArgumentException("Invalid Queue ID: queueId must to be numeric (int)!")
-        getGodSkinsResponse = await self.makeRequest("getgodskins", [godId, languageCode])
+        getGodSkinsResponse = self.makeRequest("getgodskins", [godId, languageCode])
         if str(self._responseFormat).lower() == str(ResponseFormat.XML).lower():
             return getGodSkinsResponse
         if getGodSkinsResponse is None:
@@ -675,7 +675,7 @@ class BaseSmitePaladinsAPI(HiRezAPI):
         Keyword arguments/Parameters:
             languageCode [int] or [pyrez.enumerations.LanguageCode]: (default pyrez.enumerations.LanguageCode.English)
         """
-        getItemsResponse = await self.makeRequest("getitems", [languageCode])
+        getItemsResponse = self.makeRequest("getitems", [languageCode])
         if str(self._responseFormat).lower() == str(ResponseFormat.XML).lower():
             return getItemsResponse
         if not getItemsResponse:
@@ -697,7 +697,7 @@ class BaseSmitePaladinsAPI(HiRezAPI):
         """
         if queueId is None or not str(queueId).isnumeric() or not isinstance(queueId, (SmiteQueue, PaladinsQueue)):
             raise InvalidArgumentException("Invalid Queue ID: queueId must to be numeric (int)!")
-        getLeagueLeaderboardResponse = await self.makeRequest("getleagueleaderboard", [queueId, tier, split])
+        getLeagueLeaderboardResponse = self.makeRequest("getleagueleaderboard", [queueId, tier, split])
         if str(self._responseFormat).lower() == str(ResponseFormat.XML).lower():
             return getLeagueLeaderboardResponse
         if not getLeagueLeaderboardResponse:
@@ -717,7 +717,7 @@ class BaseSmitePaladinsAPI(HiRezAPI):
         """
         if queueId is None or not str(queueId).isnumeric() or not isinstance(queueId, (SmiteQueue, PaladinsQueue)):
             raise InvalidArgumentException("Invalid Queue ID: queueId must to be numeric (int)!")
-        getLeagueSeasonsResponse = await self.makeRequest("getleagueseasons", [queueId])
+        getLeagueSeasonsResponse = self.makeRequest("getleagueseasons", [queueId])
         if str(self._responseFormat).lower() == str(ResponseFormat.XML).lower():
             return getLeagueSeasonsResponse
         if not getLeagueSeasonsResponse:
@@ -737,7 +737,7 @@ class BaseSmitePaladinsAPI(HiRezAPI):
         """
         if matchId is None or not str(matchId).isnumeric():
             raise InvalidArgumentException("Invalid Match ID: matchId must to be numeric (int)!")
-        responseJSON = await self.makeRequest("getmatchplayerdetails", [matchId])
+        responseJSON = self.makeRequest("getmatchplayerdetails", [matchId])
         if str(self._responseFormat).lower() == str(ResponseFormat.XML).lower():
             return responseJSON
         if responseJSON is None:
@@ -764,14 +764,14 @@ class PaladinsAPI(BaseSmitePaladinsAPI):
         """
         super().__init__(devId, authKey, Endpoint.PALADINS, responseFormat, sessionId, useConfigIni)
     def getLatestPatchNotes(self, languageCode=LanguageCode.English):
-        getLatestUpdateNotesResponse = await self.makeRequest("https://cms.paladins.com/wp-json/api/get-posts/{0}?tag=update-notes".format(languageCode.value if isinstance(languageCode, LanguageCode) else languageCode))
+        getLatestUpdateNotesResponse = self.makeRequest("https://cms.paladins.com/wp-json/api/get-posts/{0}?tag=update-notes".format(languageCode.value if isinstance(languageCode, LanguageCode) else languageCode))
         if getLatestUpdateNotesResponse is None:
             return None
         post = PaladinsWebsitePost(**getLatestUpdateNotesResponse[0])
-        getLatestPatchNotesResponse = await self.makeRequest("https://cms.paladins.com/wp-json/api/get-post/{0}?slug={1}".format(languageCode.value if isinstance(languageCode, LanguageCode) else languageCode, post.slug))
+        getLatestPatchNotesResponse = self.makeRequest("https://cms.paladins.com/wp-json/api/get-post/{0}?slug={1}".format(languageCode.value if isinstance(languageCode, LanguageCode) else languageCode, post.slug))
         return PaladinsWebsitePost(**getLatestPatchNotesResponse) if getLatestPatchNotesResponse is not None else None
     def getPaladinsWebsitePostBySlug(self, slug, languageCode=LanguageCode.English):
-        getPaladinsWebsitePostsResponse = await self.makeRequest("https://cms.paladins.com/wp-json/api/get-post/{0}?slug={1}".format(languageCode.value if isinstance(languageCode, LanguageCode) else languageCode, slug))
+        getPaladinsWebsitePostsResponse = self.makeRequest("https://cms.paladins.com/wp-json/api/get-post/{0}?slug={1}".format(languageCode.value if isinstance(languageCode, LanguageCode) else languageCode, slug))
         if getPaladinsWebsitePostsResponse is None:
             return None
         posts = []
@@ -780,7 +780,7 @@ class PaladinsAPI(BaseSmitePaladinsAPI):
             posts.append(obj)
         return posts if posts else None
     def getPaladinsWebsitePosts(self, languageCode=LanguageCode.English):
-        getPaladinsWebsitePostsResponse = await self.makeRequest("https://cms.paladins.com/wp-json/api/get-posts/{0}".format(languageCode.value if isinstance(languageCode, LanguageCode) else languageCode))
+        getPaladinsWebsitePostsResponse = self.makeRequest("https://cms.paladins.com/wp-json/api/get-posts/{0}".format(languageCode.value if isinstance(languageCode, LanguageCode) else languageCode))
         if getPaladinsWebsitePostsResponse is None:
             return None
         posts = []
@@ -789,7 +789,7 @@ class PaladinsAPI(BaseSmitePaladinsAPI):
             posts.append(obj)
         return posts if posts else None
     def getPaladinsWebsitePostsByQuery(self, query, languageCode=LanguageCode.English):
-        getPaladinsWebsitePostsResponse = await self.makeRequest("https://cms.paladins.com/wp-json/api/get-posts/{0}?search={1}".format(languageCode.value if isinstance(languageCode, LanguageCode) else languageCode, query))
+        getPaladinsWebsitePostsResponse = self.makeRequest("https://cms.paladins.com/wp-json/api/get-posts/{0}?search={1}".format(languageCode.value if isinstance(languageCode, LanguageCode) else languageCode, query))
         if getPaladinsWebsitePostsResponse is None:
             return None
         posts = []
@@ -805,7 +805,7 @@ class PaladinsAPI(BaseSmitePaladinsAPI):
         Keyword arguments/Parameters:
             languageCode [int] or [pyrez.enumerations.LanguageCode]: (default pyrez.enumerations.LanguageCode.English)
         """
-        getChampionsResponse = await self.makeRequest("getchampions", [languageCode]) # self.makeRequest("getgods", languageCode)
+        getChampionsResponse = self.makeRequest("getchampions", [languageCode]) # self.makeRequest("getgods", languageCode)
         if str(self._responseFormat).lower() == str(ResponseFormat.XML).lower():
             return getChampionsResponse
         if getChampionsResponse is None:
@@ -825,7 +825,7 @@ class PaladinsAPI(BaseSmitePaladinsAPI):
         """
         if godId is None or not str(godId).isnumeric() or not isinstance(godId, Champions):
             raise InvalidArgumentException("Invalid Queue ID: queueId must to be numeric (int)!")
-        getChampionsCardsResponse = await self.makeRequest("getchampioncards", [godId, languageCode])
+        getChampionsCardsResponse = self.makeRequest("getchampioncards", [godId, languageCode])
         if str(self._responseFormat).lower() == str(ResponseFormat.XML).lower():
             return getChampionsCardsResponse
         if getChampionsCardsResponse is None:
@@ -846,7 +846,7 @@ class PaladinsAPI(BaseSmitePaladinsAPI):
         """
         if godId is None or not str(godId).isnumeric() or not isinstance(godId, Champions):
             raise InvalidArgumentException("Invalid Queue ID: queueId must to be numeric (int)!")
-        getChampionLeaderboardResponse = await self.makeRequest("getchampionleaderboard", [godId, queueId])
+        getChampionLeaderboardResponse = self.makeRequest("getchampionleaderboard", [godId, queueId])
         if str(self._responseFormat).lower() == str(ResponseFormat.XML).lower():
             return getChampionLeaderboardResponse
         if getChampionLeaderboardResponse is None:
@@ -866,7 +866,7 @@ class PaladinsAPI(BaseSmitePaladinsAPI):
         """
         if playerId is None or not str(playerId).isnumeric():
             raise InvalidArgumentException("Invalid player: playerId must to be numeric (int)!")
-        getChampionsRanksResponse = await self.makeRequest("getgodranks", [playerId]) # self.makeRequest("getchampionranks", [playerId])
+        getChampionsRanksResponse = self.makeRequest("getgodranks", [playerId]) # self.makeRequest("getchampionranks", [playerId])
         if str(self._responseFormat).lower() == str(ResponseFormat.XML).lower():
             return getChampionsRanksResponse
         if getChampionsRanksResponse is None:
@@ -889,7 +889,7 @@ class PaladinsAPI(BaseSmitePaladinsAPI):
         if godId is None or not str(godId).isnumeric() or not isinstance(godId, Champions):
             raise InvalidArgumentException("Invalid Queue ID: queueId must to be numeric (int)!")
         raise DeprecatedException("OSBSOLETE - NO DATA RETURNED")
-        return await self.makeRequest("getchampionrecommendeditems", [godId, languageCode])
+        return self.makeRequest("getchampionrecommendeditems", [godId, languageCode])
     def getChampionSkins(self, godId, languageCode=LanguageCode.English):
         """
         /getchampionskins[ResponseFormat]/{devId}/{signature}/{session}/{timestamp}/{godId}/{languageCode}
@@ -901,7 +901,7 @@ class PaladinsAPI(BaseSmitePaladinsAPI):
         """
         if godId is None or not str(godId).isnumeric() or not isinstance(godId, Champions):
             raise InvalidArgumentException("Invalid Queue ID: queueId must to be numeric (int)!")
-        getChampSkinsResponse = await self.makeRequest("getchampionskins", [godId, languageCode])
+        getChampSkinsResponse = self.makeRequest("getchampionskins", [godId, languageCode])
         if str(self._responseFormat).lower() == str(ResponseFormat.XML).lower():
             return getChampSkinsResponse
         if getChampSkinsResponse is None:
@@ -920,7 +920,7 @@ class PaladinsAPI(BaseSmitePaladinsAPI):
         The purpose of this method is to return all Player ID data associated with the playerName (gamer tag) parameter.
         The expectation is that the unique player_id returned could then be used in subsequent method calls. [PaladinsAPI only]
         """
-        getPlayerIdInfoForXboxAndSwitchResponse = await self.makeRequest("getplayeridinfoforxboxandswitch", [playerName])
+        getPlayerIdInfoForXboxAndSwitchResponse = self.makeRequest("getplayeridinfoforxboxandswitch", [playerName])
         if str(self._responseFormat).lower() == str(ResponseFormat.XML).lower():
             return getPlayerIdInfoForXboxAndSwitchResponse
         if getPlayerIdInfoForXboxAndSwitchResponse is None:
@@ -941,7 +941,7 @@ class PaladinsAPI(BaseSmitePaladinsAPI):
         """
         if playerId is None or not str(playerId).isnumeric():
             raise InvalidArgumentException("Invalid player: playerId must to be numeric (int)!")
-        getPlayerLoadoutsResponse = await self.makeRequest("getplayerloadouts", [playerId, languageCode])
+        getPlayerLoadoutsResponse = self.makeRequest("getplayerloadouts", [playerId, languageCode])
         if str(self._responseFormat).lower() == str(ResponseFormat.XML).lower():
             return getPlayerLoadoutsResponse
         if getPlayerLoadoutsResponse is None:
@@ -980,7 +980,7 @@ class RealmRoyaleAPI(HiRezAPI):
         """
         if queueId is None or not str(queueId).isnumeric() or not isinstance(queueId, RealmRoyaleQueue):
             raise InvalidArgumentException("Invalid Queue ID: queueId must to be numeric (int)!")
-        getLeaderboardResponse = await self.makeRequest("getleaderboard", [queueId, rankingCriteria])
+        getLeaderboardResponse = self.makeRequest("getleaderboard", [queueId, rankingCriteria])
         if str(self._responseFormat).lower() == str(ResponseFormat.XML).lower():
             return getLeaderboardResponse
         return RealmRoyaleLeaderboard(**getLeaderboardResponse) if getLeaderboardResponse is not None else None
@@ -990,7 +990,7 @@ class RealmRoyaleAPI(HiRezAPI):
         """
         if playerId is None or not str(playerId).isnumeric():
             raise InvalidArgumentException("Invalid player: playerId must to be numeric (int)!")
-        getPlayerMatchHistoryResponse = await self.makeRequest("getplayermatchhistory", [playerId])
+        getPlayerMatchHistoryResponse = self.makeRequest("getplayermatchhistory", [playerId])
         if str(self._responseFormat).lower() == str(ResponseFormat.XML).lower():
             return getPlayerMatchHistoryResponse
         return RealmMatchHistory(**getPlayerMatchHistoryResponse) if getPlayerMatchHistoryResponse is not None else None
@@ -1000,7 +1000,7 @@ class RealmRoyaleAPI(HiRezAPI):
         """
         if playerId is None or not str(playerId).isnumeric():
             raise InvalidArgumentException("Invalid player: playerId must to be numeric (int)!")
-        getPlayerMatchHistoryAfterDatetimeResponse = await self.makeRequest("getplayermatchhistoryafterdatetime", [playerId, startDatetime.strftime("yyyyMMddHHmmss") if isinstance(startDatetime, datetime) else startDatetime])
+        getPlayerMatchHistoryAfterDatetimeResponse = self.makeRequest("getplayermatchhistoryafterdatetime", [playerId, startDatetime.strftime("yyyyMMddHHmmss") if isinstance(startDatetime, datetime) else startDatetime])
         if str(self._responseFormat).lower() == str(ResponseFormat.XML).lower():
             return getPlayerMatchHistoryAfterDatetimeResponse
         return RealmMatchHistory(**getPlayerMatchHistoryAfterDatetimeResponse) if getPlayerMatchHistoryAfterDatetimeResponse is not None else None
@@ -1010,7 +1010,7 @@ class RealmRoyaleAPI(HiRezAPI):
         """
         if playerId is None or not str(playerId).isnumeric():
             raise InvalidArgumentException("Invalid player: playerId must to be numeric (int)!")
-        return await self.makeRequest("getplayerstats", [playerId])
+        return self.makeRequest("getplayerstats", [playerId])
     def getTalents(self, languageCode=LanguageCode.English):
         """
         /gettalents[ResponseFormat]/{devId}/{signature}/{session}/{timestamp}/{langId}
@@ -1018,7 +1018,7 @@ class RealmRoyaleAPI(HiRezAPI):
         """
         if languageCode is None or not str(languageCode).isnumeric() or not isinstance(language, LanguageCode):
             raise InvalidArgumentException("Invalid LangId!")
-        responseJSON = await self.makeRequest("gettalents", [languageCode])
+        responseJSON = self.makeRequest("gettalents", [languageCode])
         if str(self._responseFormat).lower() == str(ResponseFormat.XML).lower():
             return responseJSON
         if responseJSON is None:
@@ -1032,7 +1032,7 @@ class RealmRoyaleAPI(HiRezAPI):
         """
         /searchplayers[ResponseFormat]/{devId}/{signature}/{session}/{timestamp}/{playerName}
         """
-        searchPlayerResponse = await self.makeRequest("searchplayers", [playerName])
+        searchPlayerResponse = self.makeRequest("searchplayers", [playerName])
         if str(self._responseFormat).lower() == str(ResponseFormat.XML).lower():
             return searchPlayerResponse
         if searchPlayerResponse is None:
@@ -1067,7 +1067,7 @@ class SmiteAPI(BaseSmitePaladinsAPI):
             godId [int]: 
             languageCode [int] or [pyrez.enumerations.LanguageCode]: (default pyrez.enumerations.LanguageCode.English)
         """
-        getGodRecommendedItemsResponse = await self.makeRequest("getgodrecommendeditems", [godId, languageCode])
+        getGodRecommendedItemsResponse = self.makeRequest("getgodrecommendeditems", [godId, languageCode])
         if str(self._responseFormat).lower() == str(ResponseFormat.XML).lower():
             return getGodRecommendedItemsResponse
         if getGodRecommendedItemsResponse is None:
@@ -1082,7 +1082,7 @@ class SmiteAPI(BaseSmitePaladinsAPI):
         /getmotd[ResponseFormat]/{devId}/{signature}/{session}/{timestamp}
         Returns information about the 20 most recent Match-of-the-Days.
         """
-        getMOTDResponse = await self.makeRequest("getmotd")
+        getMOTDResponse = self.makeRequest("getmotd")
         if str(self._responseFormat).lower() == str(ResponseFormat.XML).lower():
             return getMOTDResponse
         if getMOTDResponse is None:
@@ -1102,7 +1102,7 @@ class SmiteAPI(BaseSmitePaladinsAPI):
         """
         if clanId is None or not str(clanId).isnumeric():
             raise InvalidArgumentException("Invalid Clan ID: clanId must to be numeric (int)!")
-        getTeamDetailsResponse = await self.makeRequest("getteamdetails", [clanId])
+        getTeamDetailsResponse = self.makeRequest("getteamdetails", [clanId])
         if str(self._responseFormat).lower() == str(ResponseFormat.XML).lower():
             return getTeamDetailsResponse
         if getTeamDetailsResponse is None:
@@ -1122,7 +1122,7 @@ class SmiteAPI(BaseSmitePaladinsAPI):
         raise DeprecatedException("*DEPRECATED* - As of 2.14 Patch, /getteammatchhistory is no longer supported and will return a NULL dataset.")
         if clanId is None or not str(clanId).isnumeric():
             raise InvalidArgumentException("Invalid Clan ID: clanId must to be numeric (int)!")
-        return await self.makeRequest("getteammatchhistory", [clanId])
+        return self.makeRequest("getteammatchhistory", [clanId])
     def getTeamPlayers(self, clanId):
         """
         /getteamplayers[ResponseFormat]/{devId}/{signature}/{session}/{timestamp}/{clanId}
@@ -1133,7 +1133,7 @@ class SmiteAPI(BaseSmitePaladinsAPI):
         """
         if clanId is None or not str(clanId).isnumeric():
             raise InvalidArgumentException("Invalid Clan ID: clanId must to be numeric (int)!")
-        getTeamPlayers = await self.makeRequest("getteamplayers", [clanId])
+        getTeamPlayers = self.makeRequest("getteamplayers", [clanId])
         if str(self._responseFormat).lower() == str(ResponseFormat.XML).lower():
             return getTeamPlayers
         if getTeamPlayers is None:
@@ -1148,7 +1148,7 @@ class SmiteAPI(BaseSmitePaladinsAPI):
         /gettopmatches[ResponseFormat]/{devId}/{signature}/{session}/{timestamp}
         Lists the 50 most watched / most recent recorded matches.
         """
-        getTopMatchesResponse = await self.makeRequest("gettopmatches")
+        getTopMatchesResponse = self.makeRequest("gettopmatches")
         if str(self._responseFormat).lower() == str(ResponseFormat.XML).lower():
             return getTopMatchesResponse
         if getTopMatchesResponse is None:
@@ -1166,7 +1166,7 @@ class SmiteAPI(BaseSmitePaladinsAPI):
         Keyword arguments/Parameters:
             teamId [int]: 
         """
-        getSearchTeamsResponse = await self.makeRequest("searchteams", [teamId])
+        getSearchTeamsResponse = self.makeRequest("searchteams", [teamId])
         if str(self._responseFormat).lower() == str(ResponseFormat.XML).lower():
             return getSearchTeamsResponse
         if getSearchTeamsResponse is None:
