@@ -6,6 +6,7 @@ import os
 from sys import version_info as pythonVersion
 
 import requests_async as requests
+import asyncio
 
 import pyrez
 from pyrez.enumerations import *
