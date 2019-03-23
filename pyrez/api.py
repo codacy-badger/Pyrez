@@ -193,7 +193,7 @@ class HiRezAPI(BaseAPI):
                     raise RequestErrorException("The server encountered an error processing the request: " + hasError.retMsg)
                 elif hasError.retMsg.find("404") != -1:
                     raise NotFoundException("Not found: " + hasError.retMsg)
-            return result
+            return await result
 
     def switchEndpoint(self, endpoint):
         if not isinstance(endpoint, Endpoint):
