@@ -82,7 +82,7 @@ class BaseAPI:
 
     async def _httpRequest(self, url, header=None):
     	async with aiohttp.ClientSession() as session:
-    		async with session.get(url, headers=headers) as response:
+    		async with session.get(url, headers=header) as response:
     			if httpResponse.status >= 400:
     				raise NotFoundException("Wrong URL: {0}".format(httpResponse.text()))
     			return await httpResponse.json() if httpResponse.json() is not None else response.text()
