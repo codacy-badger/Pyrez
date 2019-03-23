@@ -82,7 +82,7 @@ class BaseAPI:
         return str(string).encode(encodeType)
 
     async def _httpRequest(self, url, header=None):
-        httpResponse = await asyncio.get_event_loop().run_until_complete(HttpRequest(header if header else self._header).get(url))
+        httpResponse = await HttpRequest(header if header else self._header).get(url)
         if httpResponse.status_code >= 400:
             raise NotFoundException("Wrong URL: {0}".format(httpResponse.text()))
         result = httpResponse.json() if httpResponse.json() is not None else httpResponse.text()
