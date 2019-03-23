@@ -81,8 +81,8 @@ class BaseAPI:
         return str(string).encode(encodeType)
     @asyncio.coroutine
     def _httpRequest(self, url, header=None):
-    	async with aiohttp.ClientSession() as session:
-    		async with session.get(url, headers=header) as response:
+    	asyncio.async with aiohttp.ClientSession() as session:
+    		asyncio.async with session.get(url, headers=header) as response:
     			if response.status >= 400:
     				raise NotFoundException("Wrong URL: {0}".format(response.text()))
     			return await response.json() if response.json() is not None else response.text()
