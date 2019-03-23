@@ -3,7 +3,7 @@ from sys import version_info as pythonVersion
 import requests_async as requests
 
 class HttpRequest():
-    defaultHeaders = { "User-Agent": "HttpRequestWrapper [Python/{0.major}.{0.minor} aiohttp/{1}]".format(pythonVersion, aiohttp.__version__) }
+    defaultHeaders = { "User-Agent": "HttpRequestWrapper [Python/{0.major}.{0.minor} requests/{1}]".format(pythonVersion, requests.__version__) }
     timeout = 500
 
     def __init__(self, headers=defaultHeaders):
