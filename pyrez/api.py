@@ -54,22 +54,18 @@ class BaseAPI:
         self._endpointBaseURL = str(endpoint)
         self._responseFormat = ResponseFormat(responseFormat) if isinstance(responseFormat, ResponseFormat) else ResponseFormat.JSON
         self._header = header
-
     def __getConfigIniFile(self):
         conf = configparser.ConfigParser()
         conf.read("{0}/conf.ini".format(os.path.dirname(os.path.abspath(__file__))))
         return conf
-    
     def _saveConfigIni(self, sessionId):
         conf = self.__getConfigIniFile()
         conf["Session"]["SessionId"] = sessionId
         with open("{0}/conf.ini".format(os.path.dirname(os.path.abspath(__file__))), 'w') as configfile:
             conf.write(configfile)
-
     def _readConfigIni(self):
         conf = self.__getConfigIniFile()
         return conf["Session"]["SessionId"] if conf["Session"]["SessionId"] else None
-
     def _encode(self, string, encodeType="utf-8"):
         """
         Keyword arguments/Parameters:
@@ -79,14 +75,12 @@ class BaseAPI:
             String encoded to format type
         """
         return str(string).encode(encodeType)
-    @asyncio.coroutine
-    def _httpRequest(self, url, header=None):
-    	asyncio.async with aiohttp.ClientSession() as session:
-    		asyncio.async with session.get(url, headers=header) as response:
+    async def _httpRequest(self, url, header=None):
+    	async with aiohttp.ClientSession() as session:
+    		async with session.get(url, headers=header) as response:
     			if response.status >= 400:
     				raise NotFoundException("Wrong URL: {0}".format(response.text()))
     			return await response.json() if response.json() is not None else response.text()
-
 class HiRezAPI(BaseAPI):
     """
     Class for handling connections and requests to Hi-Rez Studios APIs. IS BETTER DON'T INITALISE THIS YOURSELF!
@@ -112,7 +106,6 @@ class HiRezAPI(BaseAPI):
             self.currentSessionId = self._readConfigIni()
         else:
             self.currentSessionId = sessionId if sessionId is not None and str(sessionId).isalnum() and self.testSession(sessionId) else None
-
     def _createTimeStamp(self, frmt="%Y%m%d%H%M%S"):
         """
         Keyword arguments/Parameters:
@@ -121,14 +114,12 @@ class HiRezAPI(BaseAPI):
             Returns the current time formatted
         """
         return self._getCurrentTime().strftime(frmt)
-
     def _getCurrentTime(self):
         """        
         Returns:
             Returns the current UTC time
         """
         return datetime.utcnow()
-
     def _createSignature(self, method, timestamp=None):
         """
         Keyword arguments/Parameters:
@@ -138,10 +129,8 @@ class HiRezAPI(BaseAPI):
             Returns a Signature hash of the method
         """
         return getMD5Hash(self._encode("{0}{1}{2}{3}".format(self._devId, method.lower(), self._authKey, timestamp if timestamp is not None else self._createTimeStamp()))).hexdigest()
-
     def _sessionExpired(self):
         return self.currentSessionId is None or not str(self.currentSessionId).isalnum()
-
     def _buildUrlRequest(self, apiMethod=None, params=()): # [queue, date, hour]
         if apiMethod is None:
             raise InvalidArgumentException("No API method specified!")
@@ -157,16 +146,15 @@ class HiRezAPI(BaseAPI):
                 if param is not None:
                     urlRequest += "/{0}".format(param.strftime("yyyyMMdd") if isinstance(param, datetime) else str(param.value) if isinstance(param, (IntFlag, Enum)) else str(param))
         return urlRequest.replace(' ', "%20")
-    
-
-
-    @asyncio.coroutine
-    def makeRequest(self, apiMethod=None, params=()):
+    async def makeRequest(self, apiMethod=None, params=()):
         if apiMethod is None:
             raise InvalidArgumentException("No API method specified!")
         elif(apiMethod.lower() != "createsession" and self._sessionExpired()):
             self._createSession()
-        result = await self._httpRequest(apiMethod if str(apiMethod).lower().startswith("http") else self._buildUrlRequest(apiMethod, params))
+        loop = asyncio.new_event_loop()
+        result = loop.create_task(self._httpRequest(apiMethod if str(apiMethod).lower().startswith("http") else self._buildUrlRequest(apiMethod, params)))
+        loop.run_until_complete(result)
+        loop.close()
         if result:
             if str(self._responseFormat).lower() == str(ResponseFormat.XML).lower():
                 return result
@@ -196,28 +184,20 @@ class HiRezAPI(BaseAPI):
                 elif hasError.retMsg.find("404") != -1:
                     raise NotFoundException("Not found: " + hasError.retMsg)
             return await result
-
     def switchEndpoint(self, endpoint):
         if not isinstance(endpoint, Endpoint):
             raise InvalidArgumentException("You need to use the Endpoint enum to switch endpoints")
         self._endpointBaseURL = str(endpoint)
-
-    @asyncio.coroutine
-    def _createSession(self):
+    async def _createSession(self):
         """
         /createsession[ResponseFormat]/{devId}/{signature}/{timestamp}
         A required step to Authenticate the devId/signature for further API use.
         """
-        try:
-            tempResponseFormat, self._responseFormat = self._responseFormat, ResponseFormat.JSON
-            responseJSON = await self.makeRequest("createsession")
-            self._responseFormat = tempResponseFormat
-            return Session(**responseJSON) if responseJSON is not None else None
-        except WrongCredentials as x:
-            raise x
-    
-    @asyncio.coroutine
-    def ping(self):
+        tempResponseFormat, self._responseFormat = self._responseFormat, ResponseFormat.JSON
+        responseJSON = await self.makeRequest("createsession")
+        self._responseFormat = tempResponseFormat
+        return Session(**responseJSON) if responseJSON is not None else None
+    async def ping(self):
         """
         /ping[ResponseFormat]
         A quick way of validating access to the Hi-Rez API.
@@ -229,9 +209,7 @@ class HiRezAPI(BaseAPI):
         responseJSON = await self.makeRequest("ping")
         self._responseFormat = tempResponseFormat
         return Ping(responseJSON) if responseJSON is not None else None
-    
-    @asyncio.coroutine
-    def testSession(self, sessionId=None):
+    async def testSession(self, sessionId=None):
         """
         /testsession[ResponseFormat]/{devId}/{signature}/{session}/{timestamp}
         A means of validating that a session is established.
@@ -245,9 +223,7 @@ class HiRezAPI(BaseAPI):
         uri = "{0}/testsession{1}/{2}/{3}/{4}/{5}".format(self._endpointBaseURL, self._responseFormat, self._devId, self._createSignature("testsession"), session, self._createTimeStamp())
         result = await self._httpRequest(uri)
         return result.find("successful test") != -1
-
-    @asyncio.coroutine
-    def getDataUsed(self):
+    async def getDataUsed(self):
         """
         /getdataused[ResponseFormat]/{devId}/{signature}/{session}/{timestamp}
         Returns API Developer daily usage limits and the current status against those limits.
@@ -259,16 +235,13 @@ class HiRezAPI(BaseAPI):
         responseJSON = await self.makeRequest("getdataused")
         self._responseFormat = tempResponseFormat
         return None if responseJSON is None else DataUsed(**responseJSON) if str(responseJSON).startswith('{') else DataUsed(**responseJSON[0])
-    
-    @asyncio.coroutine
-    def getHiRezServerFeeds(self):
+
+    async def getHiRezServerFeeds(self):
         req = await self._httpRequest("http://status.hirezstudios.com/history.atom", self._header)
         #https://hirezstudios.statuspage.io/history.rss
         #https://hirezstudios.statuspage.io/history.json
         return req
-    
-    @asyncio.coroutine
-    def getHiRezServerStatus(self):
+    async def getHiRezServerStatus(self):
         """
         /gethirezserverstatus[ResponseFormat]/{devId}/{signature}/{session}/{timestamp}
         Function returns UP/DOWN status for the primary game/platform environments. Data is cached once a minute.
@@ -286,9 +259,7 @@ class HiRezAPI(BaseAPI):
             obj = HiRezServerStatus(**server)
             servers.append(obj)
         return servers if servers else None
-        
-    @asyncio.coroutine
-    def getPatchInfo(self):
+    async def getPatchInfo(self):
         """
         /getpatchinfo[ResponseFormat]/{devId}/{signature}/{session}/{timestamp}
         Function returns information about current deployed patch. Currently, this information only includes patch version.
@@ -300,9 +271,7 @@ class HiRezAPI(BaseAPI):
         responseJSON = await self.makeRequest("getpatchinfo")
         self._responseFormat = tempResponseFormat
         return PatchInfo(**responseJSON) if responseJSON is not None else None
-    
-    @asyncio.coroutine
-    def getFriends(self, playerId):
+    async def getFriends(self, playerId):
         """
         /getfriends[ResponseFormat]/{devId}/{signature}/{session}/{timestamp}/{playerId}
         Returns the User names of each of the player’s friends of one player. [PC only]
@@ -322,9 +291,7 @@ class HiRezAPI(BaseAPI):
             obj = Friend(**friend)
             friends.append(obj)
         return friends if friends else None
-
-    @asyncio.coroutine
-    def getMatchDetails(self, matchId):
+    async def getMatchDetails(self, matchId):
         """
         /getmatchdetails[ResponseFormat]/{devId}/{signature}/{session}/{timestamp}/{matchId}
         Returns the statistics for a particular completed match.
@@ -344,9 +311,7 @@ class HiRezAPI(BaseAPI):
             obj = MatchDetail(**matchDetail)
             matchDetails.append(obj)
         return matchDetails if matchDetails else None
-    
-    @asyncio.coroutine
-    def getMatchDetailsBatch(self, matchIds=()):
+    async def getMatchDetailsBatch(self, matchIds=()):
         """
         /getmatchdetailsbatch[ResponseFormat]/{devId}/{signature}/{session}/{timestamp}/{matchId,matchId,matchId,...matchId}
         Returns the statistics for a particular set of completed matches.
@@ -367,9 +332,7 @@ class HiRezAPI(BaseAPI):
             obj = MatchDetail(**matchDetail)
             matchDetails.append(obj)
         return matchDetails if matchDetails else None
-
-    @asyncio.coroutine
-    def getMatchHistory(self, playerId):
+    async def getMatchHistory(self, playerId):
         """
         /getmatchhistory[ResponseFormat]/{devId}/{signature}/{session}/{timestamp}/{playerId}
         Gets recent matches and high level match statistics for a particular player.
@@ -389,9 +352,7 @@ class HiRezAPI(BaseAPI):
             obj = MatchHistory(**matchHistory)
             matchHistorys.append(obj)
         return matchHistorys if matchHistorys else None
-
-    @asyncio.coroutine
-    def getMatchIdsByQueue(self, queueId, date, hour=-1):
+    async def getMatchIdsByQueue(self, queueId, date, hour=-1):
         """
         /getmatchidsbyqueue[ResponseFormat]/{devId}/{signature}/{session}/{timestamp}/{queue}/{date}/{hour}
         Lists all Match IDs for a particular Match Queue; useful for API developers interested in constructing data by Queue.
@@ -425,9 +386,7 @@ class HiRezAPI(BaseAPI):
             obj = MatchIdByQueue(**i)
             queueIds.append(obj)
         return queueIds if queueIds else None
-
-    @asyncio.coroutine
-    def getPlayer(self, player, portalId=None):
+    async def getPlayer(self, player, portalId=None):
         """
         /getplayer[ResponseFormat]/{devId}/{signature}/{session}/{timestamp}/{player}
         /getplayer[ResponseFormat]/{devId}/{signature}/{session}/{timestamp}/{player}/{portalId}
@@ -445,9 +404,7 @@ class HiRezAPI(BaseAPI):
             return PlayerRealmRoyale(**self.makeRequest("getplayer", [player, plat]))
         res = await self.makeRequest("getplayer", [player, portalId] if portalId else [player])
         return None if res is None else PlayerSmite(**res[0]) if isinstance(self, SmiteAPI) else PlayerPaladins(**res[0])
-
-    @asyncio.coroutine
-    def getPlayerAchievements(self, playerId):
+    async def getPlayerAchievements(self, playerId):
         """
         /getplayerachievements[ResponseFormat]/{devId}/{signature}/{session}/{timestamp}/{playerId}
         Returns select achievement totals (Double kills, Tower Kills, First Bloods, etc) for the specified playerId.
@@ -463,9 +420,7 @@ class HiRezAPI(BaseAPI):
         if getPlayerAchievementsResponse is None:
             return None
         return PlayerAcheviements(**getPlayerAchievementsResponse) if str(getPlayerAchievementsResponse).startswith('{') else PlayerAcheviements(**getPlayerAchievementsResponse[0])
-
-    @asyncio.coroutine
-    def getPlayerIdByName(self, playerName):
+    async def getPlayerIdByName(self, playerName):
         """
         /getplayeridbyname[ResponseFormat]/{developerId}/{signature}/{session}/{timestamp}/{playerName}
         Function returns a list of Hi-Rez playerId values (expected list size = 1) for playerName provided. The playerId returned is
@@ -484,9 +439,7 @@ class HiRezAPI(BaseAPI):
             obj = PlayerIdByX(**i)
             playerIds.append(obj)
         return playerIds if playerIds else None
-
-    @asyncio.coroutine
-    def getPlayerIdByPortalUserId(self, portalId, portalUserId):
+    async def getPlayerIdByPortalUserId(self, portalId, portalUserId):
         """
         /getplayeridbyportaluserid[ResponseFormat]/{developerId}/{signature}/{session}/{timestamp}/{portalId}/{portalUserId}
         Function returns a list of Hi-Rez playerId values (expected list size = 1) for {portalId}/{portalUserId} combination provided.
@@ -506,9 +459,7 @@ class HiRezAPI(BaseAPI):
             obj = PlayerIdByX(**i)
             playerIds.append(obj)
         return playerIds if playerIds else None
-
-    @asyncio.coroutine
-    def getPlayerIdsByGamerTag(self, gamerTag, portalId):
+    async def getPlayerIdsByGamerTag(self, gamerTag, portalId):
         """
         /getplayeridsbygamertag[ResponseFormat]/{developerId}/{signature}/{session}/{timestamp}/{portalId}/{gamerTag}
         Function returns a list of Hi-Rez playerId values for {portalId}/{portalUserId} combination provided. The appropriate
@@ -527,9 +478,7 @@ class HiRezAPI(BaseAPI):
             obj = PlayerIdByX(**i)
             playerIds.append(obj)
         return playerIds if playerIds else None
-
-    @asyncio.coroutine
-    def getPlayerStatus(self, playerId):
+    async def getPlayerStatus(self, playerId):
         """
         /getplayerstatus[ResponseFormat]/{devId}/{signature}/{session}/{timestamp}/{playerId}
         Returns player status as follows:
@@ -549,9 +498,7 @@ class HiRezAPI(BaseAPI):
         if not getPlayerStatusResponse:
             return None
         return PlayerStatus(**getPlayerStatusResponse) if str(getPlayerStatusResponse).startswith('{') else PlayerStatus(**getPlayerStatusResponse[0]) if getPlayerStatusResponse else None
-
-    @asyncio.coroutine
-    def getQueueStats(self, playerId, queueId):
+    async def getQueueStats(self, playerId, queueId):
         """
         /getqueuestats[ResponseFormat]/{devId}/{signature}/{session}/{timestamp}/{playerId}/{queue}
         Returns match summary statistics for a (player, queue) combination grouped by gods played.
@@ -574,7 +521,6 @@ class HiRezAPI(BaseAPI):
             obj = QueueStats(**i)
             queueStatsList.append(obj)
         return queueStatsList if queueStatsList else None
-
 class BaseSmitePaladinsAPI(HiRezAPI):
     """
     Class for handling connections and requests to Hi-Rez Studios APIs. IS BETTER DON'T INITALISE THIS YOURSELF!
@@ -592,9 +538,7 @@ class BaseSmitePaladinsAPI(HiRezAPI):
             useConfigIni [bool]: (default True)
         """
         super().__init__(devId, authKey, endpoint, responseFormat, sessionId, useConfigIni)
-
-    @asyncio.coroutine
-    def getDemoDetails(self, matchId):
+    async def getDemoDetails(self, matchId):
         """
         /getdemodetails[ResponseFormat]/{devId}/{signature}/{session}/{timestamp}/{matchId}
         Returns information regarding a particular match.  Rarely used in lieu of getmatchdetails().
@@ -616,9 +560,7 @@ class BaseSmitePaladinsAPI(HiRezAPI):
             obj = SmiteDemoDetail(**demoDetail) if isinstance(self, SmiteAPI) else PaladinsDemoDetail(**demoDetail)
             demoDetails.append(obj)
         return demoDetails if demoDetails else None
-
-    @asyncio.coroutine
-    def getEsportsProLeagueDetails(self):
+    async def getEsportsProLeagueDetails(self):
         """
         /getesportsproleaguedetails[ResponseFormat]/{devId}/{signature}/{session}/{timestamp}
         Returns the matchup information for each matchup for the current eSports Pro League season.
@@ -636,9 +578,7 @@ class BaseSmitePaladinsAPI(HiRezAPI):
             obj = EsportProLeagueDetail(**detail)
             details.append(obj)
         return details if details else None
-
-    @asyncio.coroutine
-    def getGods(self, languageCode=LanguageCode.English):
+    async def getGods(self, languageCode=LanguageCode.English):
         """
         /getgods[ResponseFormat]/{devId}/{signature}/{session}/{timestamp}/{languageCode}
         Returns all Gods and their various attributes.
@@ -660,9 +600,7 @@ class BaseSmitePaladinsAPI(HiRezAPI):
             obj = God(**i) if isinstance(self, SmiteAPI) else Champion(**i)
             gods.append(obj)
         return gods if gods else None
-
-    @asyncio.coroutine
-    def getGodLeaderboard(self, godId, queueId):
+    async def getGodLeaderboard(self, godId, queueId):
         """
         /getgodleaderboard[ResponseFormat]/{devId}/{signature}/{session}/{timestamp}/{godId}/{queue}
         Returns the current season’s leaderboard for a god/queue combination. [SmiteAPI only; queues 440, 450, 451 only]
@@ -685,9 +623,7 @@ class BaseSmitePaladinsAPI(HiRezAPI):
             obj = GodLeaderboard(**leader) if isinstance(self, SmiteAPI) else ChampionLeaderboard(**i)
             godLeaderb.append(obj)
         return godLeaderb if godLeaderb else None
-    
-    @asyncio.coroutine
-    def getGodRanks(self, playerId):
+    async def getGodRanks(self, playerId):
         """
         /getgodranks[ResponseFormat]/{devId}/{signature}/{session}/{timestamp}/{playerId}
         Returns the Rank and Worshippers value for each God a player has played.
@@ -710,9 +646,7 @@ class BaseSmitePaladinsAPI(HiRezAPI):
         for i in getGodRanksResponse:
             godRanks.append(GodRank(**i))
         return godRanks if godRanks else None
-
-    @asyncio.coroutine
-    def getGodSkins(self, godId, languageCode=LanguageCode.English):
+    async def getGodSkins(self, godId, languageCode=LanguageCode.English):
         """
         /getgodskins[ResponseFormat]/{devId}/{signature}/{session}/{timestamp}/{godId}/{languageCode}
         Returns all available skins for a particular God.
@@ -733,9 +667,7 @@ class BaseSmitePaladinsAPI(HiRezAPI):
             obj = GodSkin(**godSkin) if isinstance(self, SmiteAPI) != -1 else ChampionSkin(**godSkin)
             godSkins.append(obj)
         return godSkins if godSkins else None
-
-    @asyncio.coroutine
-    def getItems(self, languageCode=LanguageCode.English):
+    async def getItems(self, languageCode=LanguageCode.English):
         """
         /getitems[ResponseFormat]/{devId}/{signature}/{session}/{timestamp}/{languageCode}
         Returns all Items and their various attributes.
@@ -753,9 +685,7 @@ class BaseSmitePaladinsAPI(HiRezAPI):
             obj = SmiteItem(**item) if isinstance(self, SmiteAPI) != -1 else PaladinsItem(**item)
             items.append(obj)
         return items if items else None
-
-    @asyncio.coroutine
-    def getLeagueLeaderboard(self, queueId, tier, split):
+    async def getLeagueLeaderboard(self, queueId, tier, split):
         """
         /getleagueleaderboard[ResponseFormat]/{devId}/{signature}/{session}/{timestamp}/{queue}/{tier}/{split}
         Returns the top players for a particular league (as indicated by the queue/tier/split parameters).
@@ -777,9 +707,7 @@ class BaseSmitePaladinsAPI(HiRezAPI):
             obj = LeagueLeaderboard(**leaderboard)
             leagueLeaderboards.append(obj)
         return leagueLeaderboards if leagueLeaderboards else None
-        
-    @asyncio.coroutine
-    def getLeagueSeasons(self, queueId):
+    async def getLeagueSeasons(self, queueId):
         """
         /getleagueseasons[ResponseFormat]/{devId}/{signature}/{session}/{timestamp}/{queueId}
         Provides a list of seasons (including the single active season) for a match queue.
@@ -799,9 +727,7 @@ class BaseSmitePaladinsAPI(HiRezAPI):
             obj = LeagueSeason(**season)
             items.append(obj)
         return seasons if seasons else None
-
-    @asyncio.coroutine
-    def getMatchPlayerDetails(self, matchId):
+    async def getMatchPlayerDetails(self, matchId):
         """
         /getmatchplayerdetails[ResponseFormat]/{devId}/{signature}/{session}/{timestamp}/{matchId}
         Returns player information for a live match.
@@ -821,7 +747,6 @@ class BaseSmitePaladinsAPI(HiRezAPI):
             obj = MatchPlayerDetail(**player)
             players.append(obj)
         return players if players else None
-
 class PaladinsAPI(BaseSmitePaladinsAPI):
     """
     Class for handling connections and requests to Paladins API.
@@ -838,17 +763,14 @@ class PaladinsAPI(BaseSmitePaladinsAPI):
             useConfigIni [bool]: (default True)
         """
         super().__init__(devId, authKey, Endpoint.PALADINS, responseFormat, sessionId, useConfigIni)
-
-    @asyncio.coroutine
-    def getLatestPatchNotes(self, languageCode=LanguageCode.English):
+    async def getLatestPatchNotes(self, languageCode=LanguageCode.English):
         getLatestUpdateNotesResponse = await self.makeRequest("https://cms.paladins.com/wp-json/api/get-posts/{0}?tag=update-notes".format(languageCode.value if isinstance(languageCode, LanguageCode) else languageCode))
         if getLatestUpdateNotesResponse is None:
             return None
         post = PaladinsWebsitePost(**getLatestUpdateNotesResponse[0])
         getLatestPatchNotesResponse = await self.makeRequest("https://cms.paladins.com/wp-json/api/get-post/{0}?slug={1}".format(languageCode.value if isinstance(languageCode, LanguageCode) else languageCode, post.slug))
         return PaladinsWebsitePost(**getLatestPatchNotesResponse) if getLatestPatchNotesResponse is not None else None
-    @asyncio.coroutine
-    def getPaladinsWebsitePostBySlug(self, slug, languageCode=LanguageCode.English):
+    async def getPaladinsWebsitePostBySlug(self, slug, languageCode=LanguageCode.English):
         getPaladinsWebsitePostsResponse = await self.makeRequest("https://cms.paladins.com/wp-json/api/get-post/{0}?slug={1}".format(languageCode.value if isinstance(languageCode, LanguageCode) else languageCode, slug))
         if getPaladinsWebsitePostsResponse is None:
             return None
@@ -857,8 +779,7 @@ class PaladinsAPI(BaseSmitePaladinsAPI):
             obj = PaladinsWebsitePost(**post)
             posts.append(obj)
         return posts if posts else None
-    @asyncio.coroutine
-    def getPaladinsWebsitePosts(self, languageCode=LanguageCode.English):
+    async def getPaladinsWebsitePosts(self, languageCode=LanguageCode.English):
         getPaladinsWebsitePostsResponse = await self.makeRequest("https://cms.paladins.com/wp-json/api/get-posts/{0}".format(languageCode.value if isinstance(languageCode, LanguageCode) else languageCode))
         if getPaladinsWebsitePostsResponse is None:
             return None
@@ -867,8 +788,7 @@ class PaladinsAPI(BaseSmitePaladinsAPI):
             obj = PaladinsWebsitePost(**post)
             posts.append(obj)
         return posts if posts else None
-    @asyncio.coroutine
-    def getPaladinsWebsitePostsByQuery(self, query, languageCode=LanguageCode.English):
+    async def getPaladinsWebsitePostsByQuery(self, query, languageCode=LanguageCode.English):
         getPaladinsWebsitePostsResponse = await self.makeRequest("https://cms.paladins.com/wp-json/api/get-posts/{0}?search={1}".format(languageCode.value if isinstance(languageCode, LanguageCode) else languageCode, query))
         if getPaladinsWebsitePostsResponse is None:
             return None
@@ -877,9 +797,7 @@ class PaladinsAPI(BaseSmitePaladinsAPI):
             obj = PaladinsWebsitePost(**post)
             posts.append(obj)
         return posts if posts else None
-    
-    @asyncio.coroutine
-    def getChampions(self, languageCode=LanguageCode.English):
+    async def getChampions(self, languageCode=LanguageCode.English):
         """
         /getchampions[ResponseFormat]/{devId}/{signature}/{session}/{timestamp}/{languageCode}
         Returns all Champions and their various attributes. [PaladinsAPI only]
@@ -897,9 +815,7 @@ class PaladinsAPI(BaseSmitePaladinsAPI):
             obj = Champion(**i)
             champions.append(obj)
         return champions if champions else None
-
-    @asyncio.coroutine
-    def getChampionsCards(self, godId, languageCode=LanguageCode.English):
+    async def getChampionsCards(self, godId, languageCode=LanguageCode.English):
         """
         /getchampioncards[ResponseFormat]/{devId}/{signature}/{session}/{timestamp}/{godId}/{languageCode}
         Returns all Champion cards. [PaladinsAPI only]
@@ -919,9 +835,7 @@ class PaladinsAPI(BaseSmitePaladinsAPI):
             obj = ChampionCard(**i)
             cards.append(obj)
         return cards if cards else None
-
-    @asyncio.coroutine
-    def getChampionLeaderboard(self, godId, queueId=PaladinsQueue.Live_Competitive_Keyboard):
+    async def getChampionLeaderboard(self, godId, queueId=PaladinsQueue.Live_Competitive_Keyboard):
         """
         /getchampionleaderboard[ResponseFormat]/{devId}/{signature}/{session}/{timestamp}/{godId}/{queueId}
         Returns the current season’s leaderboard for a champion/queue combination. [PaladinsAPI; only queue 428]
@@ -942,9 +856,7 @@ class PaladinsAPI(BaseSmitePaladinsAPI):
             obj = ChampionLeaderboard(**i)
             getChampionLeaderboard.append(obj)
         return getChampionLeaderboard if getChampionLeaderboard else None
-
-    @asyncio.coroutine
-    def getChampionRanks(self, playerId):
+    async def getChampionRanks(self, playerId):
         """
         /getchampionranks[ResponseFormat]/{devId}/{signature}/{session}/{timestamp}/{playerId}
         Returns the Rank and Worshippers value for each Champion a player has played. [PaladinsAPI only]
@@ -963,9 +875,7 @@ class PaladinsAPI(BaseSmitePaladinsAPI):
         for i in getChampionsRanksResponse:
             championRanks.append(GodRank(**i))
         return championRanks if championRanks else None
-
-    @asyncio.coroutine
-    def getChampionRecommendedItems(self, godId, languageCode=LanguageCode.English):
+    async def getChampionRecommendedItems(self, godId, languageCode=LanguageCode.English):
         """
         /getchampionrecommendeditems[ResponseFormat]/{devId}/{signature}/{session}/{timestamp}/{godId}/{languageCode}
         Returns the Recommended Items for a particular Champion. [PaladinsAPI only]
@@ -980,9 +890,7 @@ class PaladinsAPI(BaseSmitePaladinsAPI):
             raise InvalidArgumentException("Invalid Queue ID: queueId must to be numeric (int)!")
         raise DeprecatedException("OSBSOLETE - NO DATA RETURNED")
         return await self.makeRequest("getchampionrecommendeditems", [godId, languageCode])
-        
-    @asyncio.coroutine
-    def getChampionSkins(self, godId, languageCode=LanguageCode.English):
+    async def getChampionSkins(self, godId, languageCode=LanguageCode.English):
         """
         /getchampionskins[ResponseFormat]/{devId}/{signature}/{session}/{timestamp}/{godId}/{languageCode}
         Returns all available skins for a particular Champion. [PaladinsAPI only]
@@ -1003,9 +911,7 @@ class PaladinsAPI(BaseSmitePaladinsAPI):
             obj = ChampionSkin(**champSkin)
             champSkins.append(obj)
         return champSkins if champSkins else None
-
-    @asyncio.coroutine
-    def getPlayerIdInfoForXboxAndSwitch(self, playerName):
+    async def getPlayerIdInfoForXboxAndSwitch(self, playerName):
         """
         /getplayeridinfoforxboxandswitch[ResponseFormat]/{devId}/{signature}/{session}/{timestamp}/{playerName}
         Meaningful only for the Paladins Xbox API. Paladins Xbox data and Paladins Switch data is stored in the same DB.
@@ -1024,9 +930,7 @@ class PaladinsAPI(BaseSmitePaladinsAPI):
             obj = PlayerIdInfoForXboxOrSwitch(**playerId)
             playerIds.append(obj)
         return playerIds if playerIds else None
-
-    @asyncio.coroutine
-    def getPlayerLoadouts(self, playerId, languageCode=LanguageCode.English):
+    async def getPlayerLoadouts(self, playerId, languageCode=LanguageCode.English):
         """
         /getplayerloadouts[ResponseFormat]/{devId}/{signature}/{session}/{timestamp}/playerId}/{languageCode}
         Returns deck loadouts per Champion. [PaladinsAPI only]
@@ -1047,7 +951,6 @@ class PaladinsAPI(BaseSmitePaladinsAPI):
             obj = PlayerLoadout(**playerLoadout)
             playerLoadouts.append(obj)
         return playerLoadouts if playerLoadouts else None
-        
 class RealmRoyaleAPI(HiRezAPI):
     """
     Class for handling connections and requests to Realm Royale API.
@@ -1065,9 +968,7 @@ class RealmRoyaleAPI(HiRezAPI):
             useConfigIni [bool]: (default True)
         """
         super().__init__(devId, authKey, Endpoint.REALM_ROYALE, responseFormat, sessionId, useConfigIni)
-
-    @asyncio.coroutine
-    def getLeaderboard(self, queueId, rankingCriteria):
+    async def getLeaderboard(self, queueId, rankingCriteria):
         """
         /getleaderboard[ResponseFormat]/{devId}/{signature}/{session}/{timestamp}/{queueId}/{ranking_criteria}
 
@@ -1083,9 +984,7 @@ class RealmRoyaleAPI(HiRezAPI):
         if str(self._responseFormat).lower() == str(ResponseFormat.XML).lower():
             return getLeaderboardResponse
         return RealmRoyaleLeaderboard(**getLeaderboardResponse) if getLeaderboardResponse is not None else None
-
-    @asyncio.coroutine
-    def getPlayerMatchHistory(self, playerId):
+    async def getPlayerMatchHistory(self, playerId):
         """
         /getplayermatchhistory[ResponseFormat]/{devId}/{signature}/{session}/{timestamp}/{playerId}
         """
@@ -1095,9 +994,7 @@ class RealmRoyaleAPI(HiRezAPI):
         if str(self._responseFormat).lower() == str(ResponseFormat.XML).lower():
             return getPlayerMatchHistoryResponse
         return RealmMatchHistory(**getPlayerMatchHistoryResponse) if getPlayerMatchHistoryResponse is not None else None
-
-    @asyncio.coroutine
-    def getPlayerMatchHistoryAfterDatetime(self, playerId, startDatetime):
+    async def getPlayerMatchHistoryAfterDatetime(self, playerId, startDatetime):
         """
         /getplayermatchhistoryafterdatetime[ResponseFormat]/{devId}/{signature}/{session}/{timestamp}/{playerId}/{startDatetime}
         """
@@ -1107,18 +1004,14 @@ class RealmRoyaleAPI(HiRezAPI):
         if str(self._responseFormat).lower() == str(ResponseFormat.XML).lower():
             return getPlayerMatchHistoryAfterDatetimeResponse
         return RealmMatchHistory(**getPlayerMatchHistoryAfterDatetimeResponse) if getPlayerMatchHistoryAfterDatetimeResponse is not None else None
-
-    @asyncio.coroutine
-    def getPlayerStats(self, playerId):
+    async def getPlayerStats(self, playerId):
         """ 
         /getplayerstats[ResponseFormat]/{devId}/{signature}/{session}/{timestamp}/{playerId}
         """
         if playerId is None or not str(playerId).isnumeric():
             raise InvalidArgumentException("Invalid player: playerId must to be numeric (int)!")
         return await self.makeRequest("getplayerstats", [playerId])
-
-    @asyncio.coroutine
-    def getTalents(self, languageCode=LanguageCode.English):
+    async def getTalents(self, languageCode=LanguageCode.English):
         """
         /gettalents[ResponseFormat]/{devId}/{signature}/{session}/{timestamp}/{langId}
         Get all talents
@@ -1135,9 +1028,7 @@ class RealmRoyaleAPI(HiRezAPI):
             obj = RealmRoyaleTalent(**talent)
             talents.append(obj)
         return talents if talents else None
-
-    @asyncio.coroutine
-    def searchPlayers(self, playerName):
+    async def searchPlayers(self, playerName):
         """
         /searchplayers[ResponseFormat]/{devId}/{signature}/{session}/{timestamp}/{playerName}
         """
@@ -1151,7 +1042,6 @@ class RealmRoyaleAPI(HiRezAPI):
             obj = Player(**player)
             players.append(obj)
         return players if players else None
-
 class SmiteAPI(BaseSmitePaladinsAPI):
     """
     Class for handling connections and requests to Smite API.
@@ -1168,9 +1058,7 @@ class SmiteAPI(BaseSmitePaladinsAPI):
             useConfigIni [bool]: (default True)
         """
         super().__init__(devId, authKey, Endpoint.SMITE, responseFormat, sessionId, useConfigIni)
-
-    @asyncio.coroutine
-    def getGodRecommendedItems(self, godId, languageCode=LanguageCode.English):
+    async def getGodRecommendedItems(self, godId, languageCode=LanguageCode.English):
         """
         /getgodrecommendeditems[ResponseFormat]/{devId}/{signature}/{session}/{timestamp}/{godId}/{languageCode}
         Returns the Recommended Items for a particular God. [SmiteAPI only]
@@ -1189,9 +1077,7 @@ class SmiteAPI(BaseSmitePaladinsAPI):
             obj = GodRecommendedItem(**recommendedItem)
             recommendedItems.append(obj)
         return recommendedItems if recommendedItems else None
-
-    @asyncio.coroutine
-    def getMotd(self):
+    async def getMotd(self):
         """
         /getmotd[ResponseFormat]/{devId}/{signature}/{session}/{timestamp}
         Returns information about the 20 most recent Match-of-the-Days.
@@ -1206,9 +1092,7 @@ class SmiteAPI(BaseSmitePaladinsAPI):
             obj = MOTD(**motd)
             motds.append(obj)
         return motds if motds else None
-
-    @asyncio.coroutine
-    def getTeamDetails(self, clanId):
+    async def getTeamDetails(self, clanId):
         """
         /getteamdetails[ResponseFormat]/{devId}/{signature}/{session}/{timestamp}/{clanId}
         Lists the number of players and other high level details for a particular clan.
@@ -1228,9 +1112,7 @@ class SmiteAPI(BaseSmitePaladinsAPI):
             obj = TeamDetail(**teamDetail)
             teamDetails.append(obj)
         return teamDetails if teamDetails else None
-    
-    @asyncio.coroutine
-    def getTeamMatchHistory(self, clanId):
+    async def getTeamMatchHistory(self, clanId):
         """
         /getteammatchhistory[ResponseFormat]/{devId}/{signature}/{session}/{timestamp}/{clanId}
         Gets recent matches and high level match statistics for a particular clan/team.
@@ -1241,9 +1123,7 @@ class SmiteAPI(BaseSmitePaladinsAPI):
         if clanId is None or not str(clanId).isnumeric():
             raise InvalidArgumentException("Invalid Clan ID: clanId must to be numeric (int)!")
         return await self.makeRequest("getteammatchhistory", [clanId])
-
-    @asyncio.coroutine
-    def getTeamPlayers(self, clanId):
+    async def getTeamPlayers(self, clanId):
         """
         /getteamplayers[ResponseFormat]/{devId}/{signature}/{session}/{timestamp}/{clanId}
         Lists the players for a particular clan.
@@ -1263,9 +1143,7 @@ class SmiteAPI(BaseSmitePaladinsAPI):
             obj = TeamPlayer(**teamPlayer)
             teamPlayers.append(obj)
         return teamPlayers if teamPlayers else None
-
-    @asyncio.coroutine
-    def getTopMatches(self):
+    async def getTopMatches(self):
         """
         /gettopmatches[ResponseFormat]/{devId}/{signature}/{session}/{timestamp}
         Lists the 50 most watched / most recent recorded matches.
@@ -1280,8 +1158,7 @@ class SmiteAPI(BaseSmitePaladinsAPI):
             obj = SmiteTopMatch(**match)
             matches.append(obj)
         return matches if matches else None
-    @asyncio.coroutine
-    def searchTeams(self, teamId):
+    async def searchTeams(self, teamId):
         """
         /searchteams[ResponseFormat]/{devId}/{signature}/{session}/{timestamp}/{searchTeam}
         Returns high level information for Clan names containing the “searchTeam” string. [SmiteAPI only]
@@ -1299,7 +1176,6 @@ class SmiteAPI(BaseSmitePaladinsAPI):
             obj = TeamSearch(**team)
             teams.append(obj)
         return teams if teams else None
-
 class HandOfTheGodsAPI(HiRezAPI):
     """
     Class for handling connections and requests to Hand of the Gods API.
@@ -1317,7 +1193,6 @@ class HandOfTheGodsAPI(HiRezAPI):
         """
         raise NotSupported("Not released yet!")
         super().__init__(devId, authKey, Endpoint.HAND_OF_THE_GODS, responseFormat, sessionId, useConfigIni)
-
 class PaladinsStrikeAPI(HiRezAPI):
     """
     Class for handling connections and requests to Paladins Strike API.
